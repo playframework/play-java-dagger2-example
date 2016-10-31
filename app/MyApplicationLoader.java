@@ -13,7 +13,11 @@ public class MyApplicationLoader implements ApplicationLoader {
         final Optional<LoggerConfigurator> opt = LoggerConfigurator.fromClassLoader(classLoader);
         opt.ifPresent(lc -> lc.configure(context.environment()));
 
-        return new MyComponentsFromContext(context.underlying()).javaApplication();
+        MyComponentsFactory factory = DaggerMyComponentsFactory.builder()
+                .applicationModule(new ApplicationModule(context))
+                .build();
+
+        return factory.componentsFromContext().javaApplication();
     }
 
 }

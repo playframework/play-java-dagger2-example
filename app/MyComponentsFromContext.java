@@ -1,45 +1,45 @@
 import dagger.Component;
 import dagger.Module;
 import dagger.Provides;
-import play.ApplicationLoader;
 import play.DefaultApplication;
-import play.api.routing.Router;
-import play.inject.DelegateInjector;
+import play.inject.Injector;
 import play.routing.RoutingDsl;
 
+import javax.inject.Inject;
 import javax.inject.Singleton;
+
+import java.time.Clock;
 
 import static play.mvc.Results.ok;
 
 class MyComponentsFromContext extends play.api.BuiltInComponentsFromContext {
 
-    private final MyComponents components;
+    @Inject
+    Clock clock;
 
-    public MyComponentsFromContext(play.api.ApplicationLoader.Context context) {
-        super(context);
-        final ApplicationLoader.Context javaContext = new ApplicationLoader.Context(context);
-        this.components = DaggerMyComponents.builder()
-                .applicationModule(new ApplicationModule(javaContext))
-                .build();
+    @Inject
+    public MyComponentsFromContext(play.ApplicationLoader.Context context) {
+        super(context.underlying());
     }
 
     @Override
     public play.api.routing.Router router() {
-        return components.router();
+            return new RoutingDsl()
+                    .GET("/").routeTo(() -> ok("Hello, time is " + clock.millis()))
+                    .build().asScala();
     }
 
     public play.Application javaApplication() {
-        final play.api.Application scalaApp = this.application();
-        final DelegateInjector injector = new DelegateInjector(scalaApp.injector());
-        return new DefaultApplication(scalaApp, injector);
+        Injector injector = new play.inject.DelegateInjector(super.injector());
+        return new DefaultApplication(super.application(), injector);
     }
 }
 
 
 @Singleton
 @Component(modules = { ApplicationModule.class })
-interface MyComponents {
-    Router router();
+interface MyComponentsFactory {
+   MyComponentsFromContext componentsFromContext();
 }
 
 @Module
@@ -57,11 +57,7 @@ class ApplicationModule {
     }
 
     @Provides
-    @Singleton
-    Router providesRouter() {
-        return new RoutingDsl()
-                .GET("/").routeTo(() -> ok("Hello"))
-                .build().asScala();
+    public Clock providesClock() {
+        return java.time.Clock.systemUTC();
     }
-
 }
